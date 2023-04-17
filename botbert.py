@@ -14,7 +14,7 @@ class BotBert(commands.Bot):
 				return False 
 			
 			#remove channels whos ids mtch the given channel
-			self.context_subscriptions = [c for c in self.context_subscriptions if channel.id != c.id]
+			self.context_subscriptions = [c for c in self.context_subscriptions[notification] if channel.id != c.id]
 			return True 
 
 		#subscribes a notification to the given channel
