@@ -26,7 +26,26 @@ class BotBert(commands.Bot):
 				else:
 					return False 
 				
-				return True
+				return True 
+		#unmutes the given channel
+		#returns true on succes, false if we cannot umute
+		def unmute(self,channel):
+			if self.ismuted(channel):
+				self.mute_list = [cid for cid in self.mute_list if cid != channel.id]
+				return True 
+			return False
+		#convinence function to determine if a channel is muted
+		def ismuted(self,channel):
+			return channel.id in self.mute_list
+		
+		#marks the given channel as mute for notifications
+		#returns true on succes, false if we are already muted
+		def mute(self,channel):
+			if channel.id in self.mute_list:
+				return False 
+			self.mute_list.append(channel.id)
+			return True 
+
 		#construct the botbert bot
 		def __init__(self):
 				intents = discord.Intents.default()
@@ -38,6 +57,8 @@ class BotBert(commands.Bot):
 
 				#a list of contexts that we are subscribing too
 				self.context_subscriptions = {}
+				#list of muted channels
+				self.mute_list = []
 			
 				self.msg_queue = {}
 				
@@ -45,7 +66,21 @@ class BotBert(commands.Bot):
 				@self.command()
 				async def remember(ctx,arg):
 						self.memory = arg
-						await ctx.send("[*] saving " + str(arg))
+						await ctx.send("remembering " + str(arg) + ", sir")
+
+				@self.command()
+				async def mute(ctx):
+					if self.mute(ctx.channel):
+						await ctx.send(f"muting #{ctx.channel}, sir")
+					else:
+						await ctx.send(f"#{ctx.channel} is already muted, sir")
+
+				@self.command()
+				async def unmute(ctx):
+					if self.unmute(ctx.channel):
+						await ctx.send(f"unmuting #{ctx.channel}, sir")
+					else:
+						await ctx.send(f"#{ctx.channel} is already unmuted, sir")
 
 				@self.command()
 				async def remind(ctx):
@@ -53,9 +88,9 @@ class BotBert(commands.Bot):
 				@self.command()
 				async def unsubscribe(ctx,notification):
 					if self.unsubscribe(notification,ctx.channel):
-						await ctx.send(f"unsubscribed to {notification}, sir")
+						await ctx.send(f"unsubscribed to #{notification}, sir")
 					else:
-						await ctx.send(f"sir, you are not subscribed to {notification}")
+						await ctx.send(f"sir, you are not subscribed to #{notification}")
 					
 				@self.command()
 				async def subscribe(ctx,notification):
@@ -89,6 +124,10 @@ class BotBert(commands.Bot):
 								await ctx.send(ret_val[:-1])
 				@self.event 
 				async def on_ready():
+					#every channel is subscribed to all
+					for g in self.guilds:
+						for txt_chan in g.text_channels:
+							self.subscribe("all",txt_chan)
 					#start the printer task
 					self.send_notif_loop.start()
 		
@@ -100,6 +139,8 @@ class BotBert(commands.Bot):
 				if not (subscription in self.context_subscriptions):
 					continue
 				for channel in self.context_subscriptions[subscription]:
+					if self.ismuted(channel):
+						continue
 					if not channel in send_data:
 						send_data[channel] = ""
 					send_data[channel] += self.msg_queue[subscription]
