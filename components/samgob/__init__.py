@@ -16,9 +16,19 @@ class SamGobCog(commands.Cog):
     @app_commands.describe(query='samon goblin code to execute')
     @app_commands.describe(compile_python='generate python code matching the given query')
     async def samgob(self,inter : discord.Interaction,query : str,compile_python : bool = False)->None:
+        
+        value = self.dice_parser.compile_langauge(
+            ControlFlowIterator(iter(query.split(" ")))
+            )
+
+        embeded = discord.Embed(title='samgob query',color=discord.Color.random(),description=query)
+        if len(value) > 1000:
+            for i in range(0,len(value),1000):
+                embeded.add_field(name='roll p.g:' + str(int(i/1000)),value = f'```{value[i:i+1000]}```')
+        else:
+                embeded.add_field(name='roll',value = f'```{value[0:1000]}```')
+
         await inter.response.send_message(
-                self.dice_parser.compile_langauge(
-                    ControlFlowIterator(iter(query.split(" ")))
-                    )
+                embed=embeded
                 )
 
