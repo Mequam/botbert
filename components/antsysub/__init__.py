@@ -1,6 +1,6 @@
 import discord
 from discord import app_commands
-from discord.ext import commands
+from discord.ext import commands,tasks
 
 import requests
 from bs4 import BeautifulSoup, NavigableString
@@ -19,6 +19,7 @@ class AntsySubCog(commands.Cog):
     def __init__(self,bot : commands.Bot,datafile : str = 'subscriptions.json')->None:
         self.datafile = datafile
         self.bot = bot
+        self.notify_threads.start()
 
     @antsysub.command(name='quickcheck',description='do a quick check at the provided url')
     @app_commands.describe(url='the link to check if items are in stock')
@@ -79,7 +80,7 @@ class AntsySubCog(commands.Cog):
         """
         returns a formated string representing if the given item is in stock or not
         """
-        ret_val = ""
+        ret_val = "```"
         for key in is_sold_out:
             sold_out = is_sold_out[key]
 
@@ -87,7 +88,22 @@ class AntsySubCog(commands.Cog):
                         key+\
                         (" is not sold out!" if not sold_out else " is unfortunately sold out") +\
                         "\n"
-        return ret_val
+        return ret_val + "```"
+    
+    @tasks.loop(hours=5.0)
+    async def notify_threads(self):
+        subscriptions = self.get_subscription_dict()
+        for guild_id in subscriptions:
+            for data in subscriptions[guild_id]:
+                channel = self.bot.get_channel(data['channel_id'])
+
+                await channel.send(AntsySubCog.get_stock_string(
+                    AntsySubCog.check_url(
+                        *data['options']
+                        )
+                    )
+                )
+
 
 
     @staticmethod
