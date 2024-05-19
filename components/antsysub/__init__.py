@@ -6,6 +6,9 @@ import requests
 from bs4 import BeautifulSoup, NavigableString
 import time
 
+#for saving subscriptions
+import json
+
 
 check_time = 10
 
@@ -13,7 +16,8 @@ check_URL = "https://www.antsylabs.com/products/fidget-cube-the-original-fidget-
 class AntsySubCog(commands.Cog):
     antsysub = app_commands.Group(name='subscribe',description='ask to recive continual data in this channel')
 
-    def __init__(self,bot : commands.Bot)->None:
+    def __init__(self,bot : commands.Bot,datafile : str = 'subscriptions.json')->None:
+        self.datafile = datafile
         self.bot = bot
 
     @antsysub.command(name='quickcheck',description='do a quick check at the provided url')
@@ -26,11 +30,41 @@ class AntsySubCog(commands.Cog):
                             )
                         )
 
+    def get_subscription_dict(self)->dict:
+        """
+        simple function that gets the data representation of the database
+        """
+        with open(self.datafile,'r') as f:
+            return json.load(f)
+    
+    def store_subscription_dict(self,sub_dict : dict)->None:
+        """
+        simple function to store the database back into the dictionary
+        """
+        with open(self.datafile,'w') as f:
+            return json.dump(sub_dict,f)
+
     @antsysub.command(name='sub',description='request continual updates to the given query in this channel')
     @app_commands.describe(url='the link to check if items are in stock')
     @app_commands.describe(filt='the filter for grabing html off of the page')
     async def sub(self,inter : discord.Interaction,url : str, filt : str = 'option'):
-        pass
+        
+        subscriptions = self.get_subscription_dict()
+
+        if not inter.guild_id in subscriptions:
+            subscriptions[inter.guild_id] = []
+
+        subscriptions[inter.guild_id].append(
+                    {'channel_id':inter.channel_id,'author':inter.user.id,'options':[url,filt]}
+                )
+
+        self.store_subscription_dict(subscriptions)
+
+        embeded = discord.Embed(title='subscription notification',color=discord.Color.green(),description='added subscript for this channel')
+        embeded.add_field(name='url',value=url)
+        embeded.add_field(name='filt',value=filt)
+        embeded.url = url
+        await inter.response.send_message(embed=embeded)
 
     
     @antsysub.command(name='unsub',description='unsubscribe from continual updates in this channel')
