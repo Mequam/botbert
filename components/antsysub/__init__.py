@@ -52,16 +52,23 @@ class AntsySubCog(commands.Cog):
         
         subscriptions = self.get_subscription_dict()
 
-        if not inter.guild_id in subscriptions:
-            subscriptions[inter.guild_id] = []
+        if not inter.channel_id in subscriptions:
+            subscriptions[inter.channel_id] = []
 
-        subscriptions[inter.guild_id].append(
-                    {'channel_id':inter.channel_id,'author':inter.user.id,'options':[url,filt]}
+        subscriptions[inter.channel_id].append(
+                    {
+                     'guild_id':inter.guild_id,
+                     'author':inter.user.id,
+                     'options':[url,filt],
+                     'stocks':{}
+                     }
                 )
 
         self.store_subscription_dict(subscriptions)
 
-        embeded = discord.Embed(title='subscription notification',color=discord.Color.green(),description='added subscript for this channel')
+        embeded = discord.Embed(title='subscription notification',
+                                color=discord.Color.green(),
+                                description='added subscript for this channel')
         embeded.add_field(name='url',value=url)
         embeded.add_field(name='filt',value=filt)
         embeded.url = url
@@ -93,18 +100,32 @@ class AntsySubCog(commands.Cog):
     @tasks.loop(hours=5.0)
     async def notify_threads(self):
         subscriptions = self.get_subscription_dict()
-        for guild_id in subscriptions:
-            for data in subscriptions[guild_id]:
-                channel = self.bot.get_channel(data['channel_id'])
 
-                await channel.send(AntsySubCog.get_stock_string(
-                    AntsySubCog.check_url(
-                        *data['options']
-                        )
-                    )
-                )
+        for channel_id in subscriptions:
+            channel = self.bot.get_channel(channel_id)
+            for sub in subscriptions[channel_id]:
+                
+                website_stock = AntsySubCog.check_url(*sub["options"])
+                local_stock = sub["stocks"]
 
+                for key in website_stock:
+                    if not key in local_stock or\
+                            website_stock[key] != local_stock[key]:
+                        send = True
+                        break
+                
+                if not send:
+                    for key in local_stock:
+                        if key not in website_stock:
+                            send = True
+                            break
 
+                if send:
+                    await channel.send(AntsySubCog.get_stock_string(website_stock))
+
+                sub['stocks'] = website_stock
+        
+        self.store_subscription_dict(subscriptions)
 
     @staticmethod
     def check_url(check_URL : str,filt : str = 'option')->dict:
