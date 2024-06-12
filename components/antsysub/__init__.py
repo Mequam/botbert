@@ -43,7 +43,7 @@ class AntsySubCog(commands.Cog):
         simple function to store the database back into the dictionary
         """
         with open(self.datafile,'w') as f:
-            return json.dump(sub_dict,f)
+            return json.dump(sub_dict,f,indent=5)
 
     @antsysub.command(name='sub',description='request continual updates to the given query in this channel')
     @app_commands.describe(url='the link to check if items are in stock')
@@ -54,6 +54,8 @@ class AntsySubCog(commands.Cog):
 
         if not inter.channel_id in subscriptions:
             subscriptions[inter.channel_id] = []
+
+        print(inter.channel_id)
 
         subscriptions[inter.channel_id].append(
                     {
@@ -97,16 +99,17 @@ class AntsySubCog(commands.Cog):
                         "\n"
         return ret_val + "```"
     
-    @tasks.loop(hours=5.0)
+    @tasks.loop(seconds=10.0)
     async def notify_threads(self):
         subscriptions = self.get_subscription_dict()
 
         for channel_id in subscriptions:
-            channel = self.bot.get_channel(channel_id)
             for sub in subscriptions[channel_id]:
                 
                 website_stock = AntsySubCog.check_url(*sub["options"])
                 local_stock = sub["stocks"]
+                
+                send = False
 
                 for key in website_stock:
                     if not key in local_stock or\
@@ -120,7 +123,8 @@ class AntsySubCog(commands.Cog):
                             send = True
                             break
 
-                if send:
+                channel = self.bot.get_channel(int(channel_id))
+                if send and channel != None:
                     await channel.send(AntsySubCog.get_stock_string(website_stock))
 
                 sub['stocks'] = website_stock
